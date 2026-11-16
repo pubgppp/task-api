@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: taskapi
+          POSTGRES_USER: taskapi
+          POSTGRES_PASSWORD: taskapi
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U taskapi -d taskapi"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://taskapi:taskapi@localhost:5432/taskapi
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: python -m pip install -e ".[dev]"
+      - name: Check style
+        run: ruff check .
+      - name: Apply PostgreSQL migrations
+        run: alembic upgrade head
+      - name: Check migration matches models
+        run: alembic check
+      - name: Run API tests
+        run: pytest -q
+
